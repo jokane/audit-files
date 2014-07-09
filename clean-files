@@ -19,7 +19,6 @@
 #   3. Execute: bash /tmp/files.txt
 #
 # 2012-03-07 - First version.
-#
 
 # TODO: Don't complain about files that have been modified recently.
 # TODO: Complain about directories with many files.
@@ -330,6 +329,7 @@ sub scanDir {
 }
 
 sub formatSize {
+# Return a human-readable string approximating the given number of bytes.
   my $bytes = shift;
   my $kb = $bytes / 1024;
   my $mb = $kb / 1024;
