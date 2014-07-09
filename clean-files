@@ -118,7 +118,7 @@ sub getDirSuggestion {
   # If we're a git directory, check for loose objects.
   if($dir =~ m#/\.git$#) {
     if(`cd $dir; git count-objects` !~ /^0 objects/) {
-      $ret .= "cd $dir; git gc --aggressive  # [Git repo with loose objects]";
+      $ret .= "cd $dir; pwd; git gc --aggressive  # [Git repo with loose objects]";
     }
   }
 
