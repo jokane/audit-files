@@ -38,12 +38,7 @@ sub fixType {
   # Some specific simplicifations.
   $type =~ s/, last modified.*//i;
   $type =~ s/, with very long lines//i;
-  $type =~ s/, with CRLF line terminators//i;
-  $type =~ s/, with CRLF, LF line terminators//i;
-  $type =~ s/, with CRLF, CR line terminators//i;
-  $type =~ s/, with CR, LF line terminators//i;
-  $type =~ s/, with CR line terminators//i;
-  $type =~ s/, with no line terminators//i;
+  $type =~ s/, with .* line terminators//i;
   $type =~ s/ISO-8859//i;
   $type =~ s/ASCII//i;
   $type =~ s/UTF-8 Unicode//i;
