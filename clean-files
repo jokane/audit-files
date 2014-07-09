@@ -48,6 +48,7 @@ sub fixType {
   $type =~ s/perl -w/perl/i;
   $type =~ s/LaTeX 2e/LaTeX/i;
   $type =~ s/LaTeX/TeX/i;
+  $type =~ s/^BibTeX.*/BibTeX/i
 
   # Many formats have lots of specific details at the end.
   my @prefixes = (
