@@ -20,7 +20,6 @@
 #
 # 2012-03-07 - First version.
 
-# TODO: Don't complain about files that have been modified recently.
 # TODO: Complain about directories with many files.
 
 use strict;
@@ -85,11 +84,10 @@ sub fixType {
 
 sub ignore {
 # Return true if the given directory or file should be ignored.
-  return 0; # TODO: Re-enable this function.
-
   my $x = shift;
 
-  return 1 if (-M $x < 1);
+  # Don't mess with anything that's been modified recently.
+  return 1 if (-M $x < 7);
 
   return 0;
 }
