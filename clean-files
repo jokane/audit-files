@@ -103,7 +103,8 @@ sub getDirSuggestion {
   $files =~ s/\n/ /g;
   
   # Empty directories are usually not needed.
-  if($files eq ". .. ") {
+  # (...but Git creates some that we probably shouldn't mess with.)
+  if($files eq ". .. " && $dir !~ m#/.git/#) {
     $ret .= "rmdir -v $dir   # [empty directory]";
   }
 
