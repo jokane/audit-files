@@ -34,365 +34,359 @@ use vars qw( %fileTypes %fileSizes %fileCounts $count $totalSize $numSuggestions
 sub fixType {
 # A series of modifications to a file type returned by "file", designed to
 # reduce the number of separate "categories".
-	my $type = shift;
+  my $type = shift;
 
-	# Some specific simplicifations.
-	$type =~ s/, last modified.*//i;
-	$type =~ s/, with very long lines//i;
-	$type =~ s/, with CRLF line terminators//i;
-	$type =~ s/, with CRLF, LF line terminators//i;
-	$type =~ s/, with CRLF, CR line terminators//i;
-	$type =~ s/, with CR, LF line terminators//i;
-	$type =~ s/, with CR line terminators//i;
-	$type =~ s/, with no line terminators//i;
-	$type =~ s/ISO-8859//i;
-	$type =~ s/ASCII//i;
-	$type =~ s/UTF-8 Unicode//i;
-	$type =~ s/C\+\+/C/i;  # File can't really tell the difference anyway...
-	$type =~ s/mail text/text/i;
-	$type =~ s/ \(little-endian\)//i;
-	$type =~ s/perl -w/perl/i;
-	$type =~ s/LaTeX 2e/LaTeX/i;
-	$type =~ s/LaTeX/TeX/i;
+  # Some specific simplicifations.
+  $type =~ s/, last modified.*//i;
+  $type =~ s/, with very long lines//i;
+  $type =~ s/, with CRLF line terminators//i;
+  $type =~ s/, with CRLF, LF line terminators//i;
+  $type =~ s/, with CRLF, CR line terminators//i;
+  $type =~ s/, with CR, LF line terminators//i;
+  $type =~ s/, with CR line terminators//i;
+  $type =~ s/, with no line terminators//i;
+  $type =~ s/ISO-8859//i;
+  $type =~ s/ASCII//i;
+  $type =~ s/UTF-8 Unicode//i;
+  $type =~ s/C\+\+/C/i;  # File can't really tell the difference anyway...
+  $type =~ s/mail text/text/i;
+  $type =~ s/ \(little-endian\)//i;
+  $type =~ s/perl -w/perl/i;
+  $type =~ s/LaTeX 2e/LaTeX/i;
+  $type =~ s/LaTeX/TeX/i;
 
-	# Many formats have lots of specific details at the end.
-	my @prefixes = (
-		"image data",
-		"ELF 32-bit LSB executable",
-		"PostScript document text",
-		"image data",
-		"gzip compressed data",
-		"TeX DVI file",
-		"CDF V2 document",
-		"PDF document",
-		"Adobe Photoshop Image",
-		"Audio file with ID3",
-		"MPEG",
-		"PC bitmap",
-		"RIFF data, WAVE audio",
-		"RIFF data, AVI",
-		"Standard MIDI data",
-		"broken symbolic link",
-		"Zip archive data",
-		"compiled Java class data",
-		"Apple QuickTime movie",
-		"DOS EPS Binary File",
-		"ELF 32-bit LSB relocatable",
-		"FIG image text",
-		"ISO Media, MPEG v5 system",
-	);
-	foreach my $prefix (@prefixes) {
-		$type =~ s/($prefix).*/$1/i;
-	}
+  # Many formats have lots of specific details at the end.
+  my @prefixes = (
+    "image data",
+    "ELF 32-bit LSB executable",
+    "PostScript document text",
+    "image data",
+    "gzip compressed data",
+    "TeX DVI file",
+    "CDF V2 document",
+    "PDF document",
+    "Adobe Photoshop Image",
+    "Audio file with ID3",
+    "MPEG",
+    "PC bitmap",
+    "RIFF data, WAVE audio",
+    "RIFF data, AVI",
+    "Standard MIDI data",
+    "broken symbolic link",
+    "Zip archive data",
+    "compiled Java class data",
+    "Apple QuickTime movie",
+    "DOS EPS Binary File",
+    "ELF 32-bit LSB relocatable",
+    "FIG image text",
+    "ISO Media, MPEG v5 system",
+  );
+  foreach my $prefix (@prefixes) {
+    $type =~ s/($prefix).*/$1/i;
+  }
 
 
-	return $type;
+  return $type;
 }
 
 sub ignore {
 # Return true if the given directory or file should be ignored.
-	my $x = shift;
+  my $x = shift;
 
-	return 1 if (-M $x < 1);
+  return 1 if (-M $x < 1);
 
-	return 0;
+  return 0;
 }
 
 sub getDirSuggestion {
 # Return suggested clean-up commands for the given directory.
-	my $dir = shift;
-	my $ret = "";
+  my $dir = shift;
+  my $ret = "";
 
-	my $files = `cd $dir; ls -a`;
-	$files =~ s/\n/ /g;
+  my $files = `cd $dir; ls -a`;
+  $files =~ s/\n/ /g;
+  
+  # Empty directories are usually not needed.
+  if($files eq ". .. ") {
+    $ret .= "rmdir -v $dir   # [empty directory]";
+  }
 
-	if($files eq ". .. ") {
-		$ret .= "rmdir -v $dir   # [empty directory]";
-	}
+  # If there are DVI files, we can usually get rid of them, along with other
+  # TeX-related intermediate stuff.
+  if($files =~ /\.dvi/) {
+    $ret .= "cd $dir; texmake clean   # [TeX output found]";
+  }
 
-	# If there are DVI files, we can usually get rid of them, along with other
-	# TeX-related intermediate stuff.
-	if($files =~ /\.dvi/) {
-		$ret .= "cd $dir; texmake clean   # [TeX output found]";
-	}
+  if($ret eq "") {
+    undef $ret;
+  }
 
-	if($ret eq "") {
-		undef $ret;
-	}
-
-	return $ret;
+  return $ret;
 }
 
 sub getFileSuggestion {
-# Return suggested clean-up commands for a file with thr given name
-# of the given type.
-	my $fullFile = shift;
-	my $bareFile = shift;
-	my $type = shift;
-	
-	my $ret = "";
+# Return suggested clean-up commands for a file with the given name
+# and the given type.
+  my $fullFile = shift;
+  my $bareFile = shift;
+  my $type = shift;
+  
+  my $ret = "";
+
+  # First, there are many files that we can tell are junk just by their names.
+  # So let's build a hash that maps those names to the reason they're
+  # considered junk, so we can treat them all the same way.
+  my %removeByName;
+
+  # xfig sometimes creates error recovery backups
+  $removeByName{"SAVE.fig"} = "xfig recovery save";
+
+  # I sometimes store compile errors or program output in a file.
+  $removeByName{"errors"} = "redirected compile errors";
+
+  # Sometimes we get files called 'x.log' from incorrectly exiting an
+  # interactive LaTeX session.
+  $removeByName{"x.log"} = "Bogus LaTeX log file";
+
+  # Sometimes I accidentally create a file named "\".  (Remember that the
+  # filenames are escaped before they're passed in.
+  $removeByName{"\\\\"} = "accidental Vim write";
+
+  # Sometimes, for some reason, I accidentally create a file called "2".
+  $removeByName{"2"} = "accidental Vim write";
+
+  # Sometimes I redirect output or errors to disposable files.
+  $removeByName{"errors"} = "redirected compile errors";
+  $removeByName{"errors.txt"} = "redirected compile errors";
+  $removeByName{"output"} = "redirected program output";
+  $removeByName{"output.txt"} = "redirected program output";
+  $removeByName{"outout"} = "redirected program output";
+  $removeByName{"outout.txt"} = "redirected program output";
+
+  # Sometimes my scripts leave temporary files behind.
+  $removeByName{"Makefile.ezmake"} = "generated makefile";
+  $removeByName{"Makefile.texmake"} = "generated makefile";
+   
+  # Sometimes programs leave core dumps around.
+  $removeByName{"core"} = "core dump";
+
+  # Sometimes my programs create uncompressed screenshots.
+  $removeByName{"screen.tga"} = "shell screenshot";
+  $removeByName{"screenshot.tga"} = "shell screenshot";
+
+  # That's all of the patterns.  Check each one individually.
+  foreach my $name (keys %removeByName) {
+    if($bareFile eq $name) {
+      $ret .= "rm -fv $fullFile # [$removeByName{$name}]";
+    }
+  }
+
+  ############################################################################
+  # Second, there are a few other specific cases.
+
+  # Old object files and executables tend not to be useful because of library
+  # changes.
+  if($type eq "ELF 32-bit LSB relocatable" && -M $fullFile > 365) {
+    $ret .= sprintf("rm -vf $fullFile  # [old object file (%d days)]", -M $fullFile);
+  }
+  if($type eq "ELF 32-bit LSB executable" && -M $fullFile > 365) {
+    $ret .= sprintf("rm -vf $fullFile  # [old executable (%d days)]", -M $fullFile);
+  }
 
 
-	# print "[$fullFile][$bareFile][$type]\n";
+  # Some editors create backup files ending in ~.
+  if($bareFile =~ /~$/) {
+    $ret .= "rm -vf $fullFile  # [backup file]";
+  }
 
-	# TODO:
-	# type = "LaTeX auxiliary file"
-	# type = "LaTeX table of contents"
+  # Some editors create backup files ending in .bak.
+  if($bareFile =~ /\.bak$/) {
+    $ret .= "rm -vf $fullFile  # [backup file]";
+  }
 
-	# First, there are many files that we can tell are junk just by their names.
-	# So let's build a hash that maps those names to the reason they're
-	# considered junk, so we can treat them all the same way.
-	my %removeByName;
+  # Sometimes I create backup files ending in .old.
+  if($bareFile =~ /\.old$/) {
+    $ret .= "rm -vf $fullFile  # [backup file]";
+  }
 
-	# xfig sometimes creates error recovery backups
-	$removeByName{"SAVE.fig"} = "xfig recovery save";
-
-	# I sometimes store compile errors or program output in a file.
-	$removeByName{"errors"} = "redirected compile errors";
-
-	# Sometimes we get files called 'x.log' from incorrectly exiting an
-	# interactive LaTeX session.
-	$removeByName{"x.log"} = "Bogus LaTeX log file";
-
-	# Sometimes I accidentally create a file named "\".  (Remember that the
-	# filenames are escaped before they're passed in.
-	$removeByName{"\\\\"} = "accidental Vim write";
-
-	# Sometimes, for some reason, I accidentally create a file called "2".
-	$removeByName{"2"} = "accidental Vim write";
-
-	# Sometimes I redirect output or errors to disposable files.
-	$removeByName{"errors"} = "redirected compile errors";
-	$removeByName{"errors.txt"} = "redirected compile errors";
-	$removeByName{"output"} = "redirected program output";
-	$removeByName{"output.txt"} = "redirected program output";
-	$removeByName{"outout"} = "redirected program output";
-	$removeByName{"outout.txt"} = "redirected program output";
-
-	# Sometimes my scripts leave temporary files behind.
-	$removeByName{"Makefile.ezmake"} = "generated makefile";
-	$removeByName{"Makefile.texmake"} = "generated makefile";
-	 
-	# Sometimes programs leave core dumps around.
-	$removeByName{"core"} = "core dump";
-
-	# Sometimes my programs create uncompressed screenshots.
-	$removeByName{"screen.tga"} = "shell screenshot";
-	$removeByName{"screenshot.tga"} = "shell screenshot";
-
-	# That's all of the patterns.  Check each one individually.
-	foreach my $name (keys %removeByName) {
-		if($bareFile eq $name) {
-			$ret .= "rm -fv $fullFile # [$removeByName{$name}]";
-		}
-	}
-
-	################################	
-	# Second, there are a few other specific cases.
-
-	# Old object files and executables tend not to be useful because of library
-	# changes.
-	if($type eq "ELF 32-bit LSB relocatable" && -M $fullFile > 365) {
-		$ret .= sprintf("rm -vf $fullFile  # [old object file (%d days)]", -M $fullFile);
-	}
-	if($type eq "ELF 32-bit LSB executable" && -M $fullFile > 365) {
-		$ret .= sprintf("rm -vf $fullFile  # [old executable (%d days)]", -M $fullFile);
-	}
+  # Some programs create backup files ending in .orig
+  if($bareFile =~ /\.orig$/) {
+    $ret .= "rm -vf $fullFile  # [backup file (astyle?)]";
+  }
 
 
-	# Some editors create backup files ending in ~.
-	if($bareFile =~ /~$/) {
-		$ret .= "rm -vf $fullFile  # [backup file]";
-	}
+  # Sometimes Dropbox creates conflict files.
+  if($bareFile =~ /conflicted\\ copy/) {
+    $ret .= "rm -vf $fullFile  # [Dropbox conflict file]";
+  }
 
-	# Some editors create backup files ending in .bak.
-	if($bareFile =~ /\.bak$/) {
-		$ret .= "rm -vf $fullFile  # [backup file]";
-	}
-
-	# Sometimes I create backup files ending in .old.
-	if($bareFile =~ /\.old$/) {
-		$ret .= "rm -vf $fullFile  # [backup file]";
-	}
-
-	# Some programs create backup files ending in .orig
-	if($bareFile =~ /\.orig$/) {
-		$ret .= "rm -vf $fullFile  # [backup file (astyle?)]";
-	}
+  # Tags files created to make Vim understand C++ a little better.
+  if($type =~ /Exuberant Ctags/) {
+    $ret .= "rm -vf $fullFile  # [tags file]";
+  }
 
 
-	# Sometimes Dropbox creates conflict files.
-	if($bareFile =~ /conflicted\\ copy/) {
-		$ret .= "rm -vf $fullFile  # [Dropbox conflict file]";
-	}
+  # Vim sometimes leaves its swap files around.
+  if($bareFile =~ /\.swp/) {
+    $ret .= "rm -vf $fullFile  # [Vim swap file]";
+  }
 
-	# Tags files created to make Vim understand C++ a little better.
-	if($type =~ /Exuberant Ctags/) {
-		$ret .= "rm -vf $fullFile  # [tags file]";
-	}
+  # ROS packages tend to hand lots of cruft.
+  if($bareFile eq "manifest.xml") {
+    my $dir = $fullFile;
+    $dir =~ s/\/manifest.xml//;
+    if(-e "$dir/msg_gen") {
+      $ret .= "cd $dir; ros-clean # [Uncleaned ROS package]";
+    }
+  }
 
-
-	# Vim sometimes leaves its swap files around.
-	if($bareFile =~ /\.swp/) {
-		$ret .= "rm -vf $fullFile  # [Vim swap file]";
-	}
-
-	# ROS packages tend to hand lots of cruft.
-	if($bareFile eq "manifest.xml") {
-		my $dir = $fullFile;
-		$dir =~ s/\/manifest.xml//;
-		if(-e "$dir/msg_gen") {
-			$ret .= "cd $dir; ros-clean # [Uncleaned ROS package]";
-		}
-	}
-
-	# Sometimes my scripts leave temporary files behind.
-	if($bareFile =~ /fig2ps-/) {
-		$ret .= "rm -vf $fullFile  # [fig2ps temporary file]";
-	}
-	if($bareFile =~ /fig2ps\.tmp/) {
-		$ret .= "rm -vf $fullFile  # [fig2ps temporary file]";
-	}
+  # Sometimes my scripts leave temporary files behind.
+  if($bareFile =~ /fig2ps-/) {
+    $ret .= "rm -vf $fullFile  # [fig2ps temporary file]";
+  }
+  if($bareFile =~ /fig2ps\.tmp/) {
+    $ret .= "rm -vf $fullFile  # [fig2ps temporary file]";
+  }
 
 
-	if($ret eq "") {
-		undef $ret;
-	}
-	return $ret;
+  if($ret eq "") {
+    undef $ret;
+  }
+  return $ret;
 }
 
 sub escape {
-	my $x = shift;
-	$x =~ s/([^A-Za-z0-9_~+\.\/,-])/\\$1/g;
-	return $x;	
+  my $x = shift;
+  $x =~ s/([^A-Za-z0-9_~+\.\/,-])/\\$1/g;
+  return $x;  
 }
 
 sub scanDir {
 # Recursively scan a directory tree.
-	my $dir = escape(shift);
+  my $dir = escape(shift);
 
 
-	print STDERR "$dir\n";
+  print STDERR "$dir\n";
 
-	print OUT "# In $dir...\n";
-	if(!ignore($dir)) {
-		my $suggestion = getDirSuggestion($dir);
-		if(defined $suggestion) {
-			print OUT "## $suggestion\n";
-			$numSuggestions++;
-		}
-	}
+  print OUT "# In $dir...\n";
+  if(!ignore($dir)) {
+    my $suggestion = getDirSuggestion($dir);
+    if(defined $suggestion) {
+      print OUT "## $suggestion\n";
+      $numSuggestions++;
+    }
+  }
 
-	foreach my $rawFile (<$dir/*>,<$dir/.*>) {
-		if(-d $rawFile) {
-			# Skip subdirectories for now, so that all of the suggestions
-			# from this directory appear under its name.
-		} else {
-			# Process each regular file in the directory.
+  foreach my $rawFile (<$dir/*>,<$dir/.*>) {
+    if(-d $rawFile) {
+      # Skip subdirectories for now, so that all of the suggestions
+      # from this directory appear under its name.
+    } else {
+      # Process each regular file in the directory.
 
-			# Escape the file name so we can pass it to the shell.
-			my $fullFile = escape($rawFile);
-		  my $shortFile = $fullFile; $shortFile =~ s/$ENV{"HOME"}//;
-		  my $bareFile  = $fullFile; $bareFile  =~ s#.*/##;
-		
-			# Get the file type, massage it a but, and save it for later.
-			# Also track the total sizes of files of this type, to
-			# prioritize the user's attention.
-			my $type;
-			if($USE_FILE_TYPES) {
-				$type = `file -b $fullFile`;
-				$type = fixType($type);
-			} else {
-				$type = "";
-			}
-			my $size = -s $rawFile;
-			chomp $type;
-			$fileTypes{$type} .= sprintf("# % 4s %s\n", formatSize($size), $shortFile);
+      # Escape the file name so we can pass it to the shell.
+      my $fullFile = escape($rawFile);
+      my $shortFile = $fullFile; $shortFile =~ s/$ENV{"HOME"}//;
+      my $bareFile  = $fullFile; $bareFile  =~ s#.*/##;
+    
+      # Get the file type, massage it a but, and save it for later.
+      # Also track the total sizes of files of this type, to
+      # prioritize the user's attention.
+      my $type;
+      if($USE_FILE_TYPES) {
+        $type = `file -b $fullFile`;
+        $type = fixType($type);
+      } else {
+        $type = "";
+      }
+      my $size = -s $rawFile;
+      chomp $type;
+      $fileTypes{$type} .= sprintf("# % 4s %s\n", formatSize($size), $shortFile);
 
-			# Check whether there are any suggestions for files with this name and
-			# this type.  Refuse to make suggestions about certain, hardcoded files.
-			if(!ignore($fullFile)) {
-				my $suggestion = getFileSuggestion($fullFile, $bareFile, $type);
-				if(defined $suggestion) {
-					print OUT "## $suggestion\n";
-					$numSuggestions++;
-				}
-			}
+      # Check whether there are any suggestions for files with this name and
+      # this type.  Refuse to make suggestions about certain, hardcoded files.
+      if(!ignore($fullFile)) {
+        my $suggestion = getFileSuggestion($fullFile, $bareFile, $type);
+        if(defined $suggestion) {
+          print OUT "## $suggestion\n";
+          $numSuggestions++;
+        }
+      }
 
-			# Keep some statistics.
-			$fileSizes{$type} += $size;
-			$fileCounts{$type} ++;
-			$count ++;
-			$totalSize += $size;
-		}
-	}
+      # Keep some statistics.
+      $fileSizes{$type} += $size;
+      $fileCounts{$type} ++;
+      $count ++;
+      $totalSize += $size;
+    }
+  }
 
-	# Pass 2: Recurse on subdirectories.
-	foreach my $rawFile (<$dir/*>) {
-		if(-d $rawFile) {
-			scanDir($rawFile);
-		}
-	}
+  # Pass 2: Recurse on subdirectories.
+  foreach my $rawFile (<$dir/*>) {
+    if(-d $rawFile) {
+      scanDir($rawFile);
+    }
+  }
 }
 
 sub formatSize {
-	my $bytes = shift;
-	my $kb = $bytes / 1024;
-	my $mb = $kb / 1024;
-	my $gb = $mb / 1024;
-	if($kb < 1) {
-		return sprintf("%db", $bytes);
-	} elsif($mb < 1) {
-		return sprintf("%dK", $kb);
-	} elsif($gb < 1) {
-		return sprintf("%dM", $mb);
-	} else {
-		return sprintf("%dG", $gb);
-	}
+  my $bytes = shift;
+  my $kb = $bytes / 1024;
+  my $mb = $kb / 1024;
+  my $gb = $mb / 1024;
+  if($kb < 1) {
+    return sprintf("%db", $bytes);
+  } elsif($mb < 1) {
+    return sprintf("%dK", $kb);
+  } elsif($gb < 1) {
+    return sprintf("%dM", $mb);
+  } else {
+    return sprintf("%dG", $gb);
+  }
 }
 
 sub go {
-	$USE_FILE_TYPES = 1;
-	if(!GetOptions(
-		'types!' => \$USE_FILE_TYPES,
-	)) {
-		exit(1);
-	}
+  $USE_FILE_TYPES = 1;
+  if(!GetOptions(
+    'types!' => \$USE_FILE_TYPES,
+  )) {
+    exit(1);
+  }
 
-	my $wd = `pwd`;
-	chomp $wd;
+  my $wd = `pwd`;
+  chomp $wd;
 
-	open(OUT, ">/tmp/files.txt");
-	print OUT "# Search for ## to find and uncomment suggested clean up commands.\n";
-	print OUT "# Search for --- to browse file types, in order of increasing total size.\n";
+  open(OUT, ">/tmp/files.txt");
+  print OUT "# Search for ## to find and uncomment suggested clean up commands.\n";
+  print OUT "# Search for --- to browse file types, in order of increasing total size.\n";
 
-	scanDir($wd);
+  scanDir($wd);
 
-	print OUT "#\n";
-	print OUT "#\n";
-	print OUT "#\n";
-	print OUT "# Directory scan complete.\n";
+  print OUT "#\n";
+  print OUT "#\n";
+  print OUT "#\n";
+  print OUT "# Directory scan complete.\n";
 
-	if($USE_FILE_TYPES) {
-		print OUT "# File type analysis appears below.\n";
-		print OUT "#\n";
-		foreach my $type (sort keys %fileSizes) {
-			print OUT sprintf("# --- %s (%d files; %s)\n", $type, $fileCounts{$type}, formatSize($fileSizes{$type}));
-			print OUT "$fileTypes{$type}\n";
-		}
-	} else {
-		print OUT "# File type analysis suppressed at command line.\n";
-		print OUT "#\n";
-	}
+  if($USE_FILE_TYPES) {
+    print OUT "# File type analysis appears below.\n";
+    print OUT "#\n";
+    foreach my $type (sort keys %fileSizes) {
+      print OUT sprintf("# --- %s (%d files; %s)\n", $type, $fileCounts{$type}, formatSize($fileSizes{$type}));
+      print OUT "$fileTypes{$type}\n";
+    }
+  } else {
+    print OUT "# File type analysis suppressed at command line.\n";
+    print OUT "#\n";
+  }
 
-	print OUT "# Total size of all $count files: ". formatSize($totalSize) . "\n";
-	close(OUT);
-	
-	if(!defined $numSuggestions) {
-		print "No clean-up suggestions.  Details in /tmp/files.txt\n";
-	} else {
-		print "$numSuggestions clean-up suggestions written to /tmp/files.txt\n";
-	}
+  print OUT "# Total size of all $count files: ". formatSize($totalSize) . "\n";
+  close(OUT);
+  
+  if(!defined $numSuggestions) {
+    print "No clean-up suggestions.  Details in /tmp/files.txt\n";
+  } else {
+    print "$numSuggestions clean-up suggestions written to /tmp/files.txt\n";
+  }
 }
 
 go;
