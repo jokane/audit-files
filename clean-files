@@ -102,9 +102,6 @@ sub getDirSuggestion {
 # Return suggested clean-up commands for the given directory.
 	my $dir = shift;
 	my $ret = "";
-	my $hasTeX = 0;
-
-	# CVS
 
 	my $files = `cd $dir; ls -a`;
 	$files =~ s/\n/ /g;
@@ -113,12 +110,9 @@ sub getDirSuggestion {
 		$ret .= "rmdir -v $dir   # [empty directory]";
 	}
 
+	# If there are DVI files, we can usually get rid of them, along with other
+	# TeX-related intermediate stuff.
 	if($files =~ /\.dvi/) {
-		$hasTeX = 1;
-	}
-
-
-	if($hasTeX) {
 		$ret .= "cd $dir; texmake clean   # [TeX output found]";
 	}
 
