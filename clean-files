@@ -111,6 +111,7 @@ sub getDirSuggestion {
     $ret .= "cd $dir; texmake clean   # [TeX output found]";
   }
 
+  # If we don't have any suggestions, return undef.
   if($ret eq "") {
     undef $ret;
   }
@@ -316,10 +317,16 @@ sub scanDir {
   }
 
   # Pass 2: Recurse on subdirectories.
-  foreach my $rawFile (<$dir/*>) {
-    if(-d $rawFile) {
-      scanDir($rawFile);
-    }
+  foreach my $rawFile (<$dir/*>,<$dir/.*>) {
+    # Ignore non-directories...
+    next if(!-d $rawFile);
+
+    # ...and the special directories . and .. .
+    next if($rawFile =~ m#/.$#);
+    next if($rawFile =~ m#/..$#);
+
+    # Everything else is a legit subdirectory.
+    scanDir($rawFile);
   }
 }
 
