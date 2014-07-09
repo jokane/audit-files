@@ -38,6 +38,7 @@ sub fixType {
   $type =~ s/, last modified.*//i;
   $type =~ s/, with very long lines//i;
   $type =~ s/, with .* line terminators//i;
+  $type =~ s/, with escape sequences//i;
   $type =~ s/ISO-8859//i;
   $type =~ s/ASCII//i;
   $type =~ s/UTF-8 Unicode//i;
