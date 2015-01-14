@@ -332,9 +332,12 @@ sub scanDir {
     # Ignore non-directories...
     next if(!-d $rawFile);
 
-    # ...and the special directories . and .. .
+    # ...and the special directories . and .. ...
     next if($rawFile =~ m#/.$#);
     next if($rawFile =~ m#/..$#);
+
+    # ...and don't follow links.
+    next if(-l $rawFile);
 
     # Everything else is a legit subdirectory.
     scanDir($rawFile);
