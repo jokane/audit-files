@@ -386,7 +386,7 @@ sub go {
   if($USE_FILE_TYPES) {
     print OUT "# File type analysis appears below.\n";
     print OUT "#\n";
-    foreach my $type (sort keys %fileSizes) {
+    foreach my $type (sort { $fileSizes{$b} <=> $fileSizes{$a} } keys %fileSizes) {
       print OUT sprintf("# --- %s (%d files; %s)\n", $type, $fileCounts{$type}, formatSize($fileSizes{$type}));
       print OUT "$fileTypes{$type}\n";
     }
