@@ -1,0 +1,4 @@
+#!/bin/sh
+# Show, in an ordered and human-readable format, the space used by each
+# subdirectory of the current subdirectory.
+du -b --max 1 | sort -n -r | hrn

@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+# Filter to replace numbers with human-friendly equivalents.
+
+use strict;
+use warnings;
+
+my %units = (
+  'K' => 1<<10,
+  'M' => 1<<20,
+  'G' => 1<<30,
+);
+
+sub fix {
+  my $n = shift;
+
+  for my $unit (sort {$units{$b} <=> $units{$a}} keys %units) {
+    if ($n >= $units{$unit}) {
+      return sprintf("%0.1f%s", ($n / $units{$unit}), $unit);
+    }
+  }
+  return $n
+}
+
+while (my $line = <>) {
+  $line =~ s/(\d+)/fix($1)/eg;
+  print $line;
+}
+
